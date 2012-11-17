@@ -29,7 +29,7 @@
 %%%     expressed in seconds.</li>
 %%% <li>Specify child process shutdown type - immediate or in a given
 %%%     interval</li>
-%%% <li>Log all scheduing events to `event_logger' using an optional
+%%% <li>Log all scheduling events to `event_logger' using an optional
 %%%     custom event report type</li>
 %%% </ul>
 %%%
