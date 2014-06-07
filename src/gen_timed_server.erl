@@ -81,10 +81,11 @@
 %%%        {ok, Pid} | {stop, Reason} when `no_spawn' option is provided
 %%%
 %%%    valid exit values are:
-%%%      * normal     - performs normal rescheduling
-%%%      * shutdown   - exits the gen_server without any further rescheduing
-%%%      * Term       - performs supervised recovery by applying
-%%%                     given restart policy
+%%%      * normal             - performs normal rescheduling
+%%%      * shutdown           - exits the gen_server without any further rescheduling
+%%%      * {shutdown, Reason} - exits gen_server with `Reason' without rescheduling 
+%%%      * Term               - performs supervised recovery by applying
+%%%                             given restart policy
 %%%   handle_stop(Action, Reason, State, Opaque) ->
 %%%               Action = continue | stop
 %%%    ==> {continue, Reason, State}    continues with default rescheduling
@@ -144,7 +145,8 @@
 %%%------------------------------------------------------------------------
 %%% @type schedule()    = [ DaySchedule ]
 %%%         DaySchedule = {DayRange, [TimeRange::hourrange()]}
-%%%         DayRange    = any | day() | [ day() ]
+%%%         DayRange    = any | day() | [ day() ] |
+%%%                       {FromDay::day(), ToDay::day()}
 %%%         Hours       = [ hourrange() ].
 %%% @type day()         = mon | tue | wed | thu | fri | sat | sun.
 %%% @type hourrange()   = {FromTime::time(), ToTime::time()} |
@@ -164,8 +166,8 @@
 %%% @type sup_options() = [SupOption].
 %%%     SupOption   = {schedule, Schedule::schedule()} |
 %%%                   {restart, RestartSpec} |
-%%%                   no_spawn | {spawn, boolean()}
-%%%                   use_monitor | {use_monitor, boolean()} |
+%%%                   no_spawn | {spawn, boolean()} |
+%%%                   {monitor_type, monitor | link | child_link} |
 %%%                   {report_type, ReportType::term()} |
 %%%                   {shutdown, ShutdownType} |
 %%%                   {include_days, [DayOfMonth]} |
@@ -191,13 +193,16 @@
 %%%             In the absense of this option `handle_run/1' callback is
 %%%             executed in the context of a newly spawned process.  In either
 %%%             case the new `Pid' will be either monitored or linked to
-%%%             depending on the presense of `use_monitor' option.</dd>
-%%%     <dt>use_monitor</dt>
-%%%         <dd>When specified, the superviser will use monitor instead of
-%%%             a link to the child process. The implication is that it'll
+%%%             depending on the presense of `monitor_type' option.</dd>
+%%%     <dt>monitor_type</dt>
+%%%         <dd>`monitor' - the superviser will use monitor to monitor the
+%%%             child process.  The implication is that it'll
 %%%             be able to detect the death of the child, but when the
 %%%             supervisor process is killed with `kill' reason the child
-%%%             process will remain running.</dd>
+%%%             process will remain running.
+%%%             `link' - the supervisor will use a link to link to the child.
+%%%             `child_link' - the child will link to this supervisor on spawn
+%%%             by itself.</dd>
 %%%     <dt>ReportType</dt>
 %%%         <dd>When specified, the
 %%%             `error_logger:error_report({Type, ReportType}, Report)'
@@ -297,14 +302,16 @@
     last_fail,          % now() - Time of last failure
     intensity = 0,      % Max number of restarts allowed within period
     period    = 1,      % Time in seconds in which the number of 'restarts' is allowed
-    restarts  = 0,      % Current number of restarts in 'period'
     delay     = 0,      % Delay time in seconds between successive restarts
+    restarts  = 0,      % Current number of restarts in 'period'
     spawn     = true,   % boolean() - If false no child process is explicitely spawned
     valid_days =        % {FromBeginning, FromEnd} is a tuple of two binary coded
         {?DEF_VALID,    % integers representing bor'd days of month when the
          ?DEF_VALID},   % child can be run.
-    use_monitor=false,  % When true - use monitor instead of linking to child
-    monref,             % When use_monitor is true, this value is the monitor reference
+    monitor_type=link,  % link       - use link
+                        % monitor    - use monitor
+                        % child_link - child process will link to this server by itself.
+    monref,             % When monitor_type is `monitor', this value is the monitor reference
     shutdown=2000,      % brutal_kill | integer() >= 0
     report_type,        % When different from `undefined', error_logger:error_report/2
                         % is used for error reports.
@@ -470,23 +477,23 @@ weekdays() ->
 %%      callbacks.  If `Item' is `all' then `[Value]' list is returned.
 %% @end
 %%-------------------------------------------------------------------------
-get(id,         #state{id=X})         -> X;
-get(name,       #state{name=X})       -> X;
-get(status,     #state{status=X})     -> X;
-get(schedule,   #state{schedule=X})   -> X;
-get(next_wakeup,#state{next_wakeup=X})-> X;
-get(next_repeat,#state{next_repeat=X})-> X;
-get(until_time, #state{until_time=X}) -> X;
-get(last_start, #state{last_start=X}) -> X;
-get(last_fail,  #state{last_fail=X})  -> X;
-get(intensity,  #state{intensity=X})  -> X;
-get(period,     #state{period=X})     -> X;
-get(restarts,   #state{restarts=X})   -> X;
-get(delay,      #state{delay=X})      -> X;
-get(valid_days, #state{valid_days=X}) -> format_valid_days(X);
-get(use_monitor,#state{use_monitor=X})-> X;
-get(shutdown,   #state{shutdown=X})   -> X;
-get(all,        #state{} = State) ->
+get(id,          #state{id=X})         -> X;
+get(name,        #state{name=X})       -> X;
+get(status,      #state{status=X})     -> X;
+get(schedule,    #state{schedule=X})   -> X;
+get(next_wakeup, #state{next_wakeup=X})-> X;
+get(next_repeat, #state{next_repeat=X})-> X;
+get(until_time,  #state{until_time=X}) -> X;
+get(last_start,  #state{last_start=X}) -> X;
+get(last_fail,   #state{last_fail=X})  -> X;
+get(intensity,   #state{intensity=X})  -> X;
+get(period,      #state{period=X})     -> X;
+get(restarts,    #state{restarts=X})   -> X;
+get(delay,       #state{delay=X})      -> X;
+get(valid_days,  #state{valid_days=X}) -> format_valid_days(X);
+get(monitor_type,#state{monitor_type=X})-> X;
+get(shutdown,    #state{shutdown=X})   -> X;
+get(all,         #state{} = State) ->
     [
         {pid,           State#state.pid},
         {status,        State#state.status},
@@ -499,7 +506,7 @@ get(all,        #state{} = State) ->
                          State#state.period,
                          State#state.delay}},
         {restarts,      State#state.restarts},
-        {use_monitor,   State#state.use_monitor},
+        {monitor_type,  State#state.monitor_type},
         {report_type,   State#state.report_type},
         {shutdown,      State#state.shutdown},
         {schedule,      State#state.schedule},
@@ -626,7 +633,7 @@ handle_info({?COMPILED_SPEC, repeat_timer, Interval} = Msg, State) ->
         handle_info({?COMPILED_SPEC, timer, restart}, State#state{repeat_timer=undefined})
     end;
 
-handle_info({'DOWN', Ref, process, Pid, Reason}, #state{use_monitor=true, monref=Ref} = State) ->
+handle_info({'DOWN', Ref, process, Pid, Reason}, #state{monitor_type=monitor, monref=Ref} = State) ->
     handle_info({'EXIT', Pid, Reason}, State);
 handle_info({'EXIT', Pid, Reason}, #state{pid=Pid} = State) when is_pid(Pid) ->
     internal_handle_exit(Reason, State);
@@ -677,6 +684,9 @@ internal_handle_exit({Ok, MState}, State) when Ok=:=ok; Ok=:=noreply ->
 internal_handle_exit(shutdown, State) ->
     Result = do_stop(shutdown, State),
     internal_handle_exit2(shutdown, Result);
+internal_handle_exit({shutdown, _Reason} = SR, State) ->
+    Result = do_stop(SR, State),
+    internal_handle_exit2(SR, Result);
 internal_handle_exit(Reason, State) ->
     Result = do_schedule_restart_on_failure(Reason, State),
     internal_handle_exit2(Reason, Result).
@@ -712,7 +722,7 @@ do_reschedule(Reason, State) ->
 
 do_stop(Reason, #state{restarts=C} = State) ->
     NewS = State#state{restarts=C+1, pid=undefined, status=terminated},
-    do_report_shutdown([], shutdown, NewS),
+    do_report_shutdown([], Reason, NewS),
     {stop, Reason, NewS}.
 
 do_schedule_restart_on_failure(Reason, State) ->
@@ -760,7 +770,7 @@ check_state_change(#state{} = S1, #state{} = S2) ->
       , S1#state.period              =:= S2#state.period
       , S1#state.restarts            =:= S2#state.restarts
       , S1#state.delay               =:= S2#state.delay
-      , S1#state.use_monitor         =:= S2#state.use_monitor
+      , S1#state.monitor_type        =:= S2#state.monitor_type
       , S1#state.shutdown            =:= S2#state.shutdown
       , S1#state.report_type         =:= S2#state.report_type
     ->
@@ -774,24 +784,17 @@ validate_sup_opts([{schedule, Sched} | Tail], State) ->
     {?COMPILED_SPEC, SchedSpec} = validate_schedule(Sched),
     validate_sup_opts(Tail, State#state{schedule=SchedSpec});
 validate_sup_opts([{restart, {MaxR, MaxT, Delay}} | Tail], State) ->
-    if is_integer(MaxR), MaxR >= 0 -> ok;
-    true -> throw({invalid_intensity, MaxR})
-    end,
-    if is_integer(MaxT), MaxT > 0 -> ok;
-    true -> throw({invalid_period, MaxT})
-    end,
-    if is_integer(Delay), Delay >= 0 -> ok;
-    true -> throw({invalid_delay, Delay})
-    end,
+    (is_integer(MaxR)  andalso MaxR  >= 0) orelse throw({invalid_intensity, MaxR}),
+    (is_integer(MaxT)  andalso MaxT  >  0) orelse throw({invalid_period,    MaxT}),
+    (is_integer(Delay) andalso Delay >= 0) orelse throw({invalid_delay,    Delay}),
     validate_sup_opts(Tail, State#state{intensity=MaxR, period=MaxT, delay=Delay});
 validate_sup_opts([{spawn, Bool} | Tail], State) when is_boolean(Bool) ->
     validate_sup_opts(Tail, State#state{spawn=Bool});
 validate_sup_opts([no_spawn | Tail], State) ->
     validate_sup_opts(Tail, State#state{spawn=false});
-validate_sup_opts([use_monitor | Tail], State) ->
-    validate_sup_opts(Tail, State#state{use_monitor=true});
-validate_sup_opts([{use_monitor, B} | Tail], State) when is_boolean(B) ->
-    validate_sup_opts(Tail, State#state{use_monitor=B});
+validate_sup_opts([{monitor_type, M} | Tail], State)
+  when M=:=monitor; M=:=link; M=:=child_link ->
+    validate_sup_opts(Tail, State#state{monitor_type=M});
 validate_sup_opts([{report_type, Type}| Tail], State) ->
     validate_sup_opts(Tail, State#state{report_type=Type});
 validate_sup_opts([{shutdown, Type}| Tail], State)
@@ -896,9 +899,9 @@ format_valid_days2(I, N, FirstOne, LastOne, Acc) ->
 %%      format.
 %% @end
 %%-------------------------------------------------------------------------
-validate_schedule({?COMPILED_SPEC, DaySpecs}=S) when is_tuple(DaySpecs), tuple_size(DaySpecs) =:= 7 ->
+validate_schedule({?COMPILED_SPEC, DaySpecs}=S) when tuple_size(DaySpecs) =:= 7 ->
     {?COMPILED_SPEC, S};
-validate_schedule(DaySpecs) when is_tuple(DaySpecs), tuple_size(DaySpecs) =:= 7 ->
+validate_schedule(DaySpecs) when tuple_size(DaySpecs) =:= 7 ->
     {?COMPILED_SPEC, DaySpecs};
 validate_schedule(DaySpecs) ->
     {?COMPILED_SPEC, validate_time_spec(DaySpecs, erlang:make_tuple(7, []))}.
@@ -914,6 +917,14 @@ validate_day_spec({any, TimeInt}, Days) ->
     lists:foldl(fun(Day, Acc) -> append_time(Day, Acc, Time) end, Days, [1,2,3,4,5,6,7]);
 validate_day_spec({DayList, TimeInt}, Days) when is_list(DayList) ->
     Time = validate_time_intervals(TimeInt, []),
+    lists:foldl(fun(Day, Acc) -> validate_day_spec2(Day, Acc, Time) end, Days, DayList);
+validate_day_spec({{FromDay, ToDay} = DS, TimeInt}, Days) ->
+    Time       = validate_time_intervals(TimeInt, []),
+    IntFromDay = decode_day(FromDay),
+    IntToDay   = decode_day(ToDay),
+    IntFromDay =< IntToDay orelse
+        throw(?FMT("Invalid day spec: ~p (FromDay must be less than ToDay)!", [DS])),
+    DayList    = lists:seq(IntFromDay, IntToDay),
     lists:foldl(fun(Day, Acc) -> validate_day_spec2(Day, Acc, Time) end, Days, DayList);
 validate_day_spec({Day, TimeInt}, Days) when is_list(TimeInt) ->
     Time = validate_time_intervals(TimeInt, []),
@@ -1112,17 +1123,24 @@ try_start_child2(#state{mod=Mod, mod_state=MState, report_type=Type, name=Name} 
         {ChildPid, MRef} =
             case State#state.spawn of
             true ->
-                case State#state.use_monitor of
-                true  -> erlang:spawn_monitor(Mod, handle_run, [MState]);
-                false -> {erlang:spawn_link(Mod, handle_run, [MState]), undefined}
+                case State#state.monitor_type of
+                monitor    -> erlang:spawn_monitor(Mod, handle_run, [MState]);
+                link       -> {erlang:spawn_link(Mod, handle_run, [MState]), undefined};
+                child_link -> throw({spawn_option_doesnt_support_child_link, Mod, MState})
                 end;
             false ->
-                case {Mod:handle_run(MState), State#state.use_monitor} of
-                {{ok, CPid}, true} ->
+                case {Mod:handle_run(MState), State#state.monitor_type} of
+                {{ok, CPid}, monitor} ->
                     {CPid, erlang:monitor(process, CPid)};
-                {{ok, CPid}, false} ->
+                {{ok, CPid}, link} ->
                     link(CPid),
                     {CPid, undefined};
+                {{ok, CPid}, child_link} ->
+                    lists:member(CPid, element(2, process_info(self(), links)))
+                        orelse throw({child_process_not_linked, Mod, MState}),
+                    {CPid, undefined};
+                {{error, Reason}, _} ->
+                    erlang:error({error, Reason});
                 {{stop, Reason}, _} ->
                     throw(Reason)
                 end
@@ -1536,6 +1554,16 @@ local_fun_test_() ->
         , validate_schedule(full_schedule()))
     , ?_assertEqual({[{{9,0,0},{10,0,0},0}],[],[],[],[],[],[]}
         , validate_day_spec({[mon], [{"9:00", "10:00"}]}, erlang:make_tuple(7, [])))
+    , ?_assertEqual({[],[],[{{9,0,0},{10,0,0},0}],
+                           [{{9,0,0},{10,0,0},0}],
+                           [{{9,0,0},{10,0,0},0}],
+                           [{{9,0,0},{10,0,0},0}],[]}
+        , validate_day_spec({{wed,sat}, [{"9:00", "10:00"}]}, erlang:make_tuple(7, [])))
+    , ?_assertEqual({[],[],[{{9,0,0},{10,0,0},0}],
+                           [{{9,0,0},{10,0,0},0}],
+                           [{{9,0,0},{10,0,0},0}],
+                           [{{9,0,0},{10,0,0},0}],[]}
+        , validate_day_spec({{3,6}, [{"9:00", "10:00"}]}, erlang:make_tuple(7, [])))
     , ?_assertEqual({[],[],[{{9,0,0},{10,0,0},0}],[],[],[],[{{9,0,0},{10,0,0},0}]}
         , validate_day_spec({[wed,sun], [{"9:00", "10:00"}]}, erlang:make_tuple(7, [])))
     , ?_assertEqual("Thu 2009/10/01 [10:05:00 - 10:15:00]"
@@ -1548,8 +1576,8 @@ local_fun_test_() ->
         , print_timespec({[{{9,0,0},{10,0,0},0}],[],[],[],[],[],[]}))
     , ?_assertEqual("Mon [09:00:00-10:00:00 (every 30s)]"
         , print_timespec({[{{9,0,0},{10,0,0},30}],[],[],[],[],[],[]}))
-    , ?_assertEqual({[use_monitor], [{onfailure, exit},{other, []}, option]}
-        , split_options([{onfailure, exit}, use_monitor, {other, []}, option]))
+    , ?_assertEqual({[{monitor_type, monitor}], [{onfailure, exit},{other, []}, option]}
+        , split_options([{onfailure, exit}, {monitor_type, monitor}, {other, []}, option]))
     ].
 
 merge_valid_days_test_() ->
