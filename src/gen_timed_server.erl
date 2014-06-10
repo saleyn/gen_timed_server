@@ -922,7 +922,9 @@ validate_day_spec({any, TimeInt}, Days) ->
 validate_day_spec({DayList, TimeInt}, Days) when is_list(DayList) ->
     Time = validate_time_intervals(TimeInt, []),
     lists:foldl(fun(Day, Acc) -> validate_day_spec2(Day, Acc, Time) end, Days, DayList);
-validate_day_spec({{FromDay, ToDay} = DS, TimeInt}, Days) ->
+validate_day_spec({{FromDay, ToDay} = DS, TimeInt}, Days)
+        when is_atom(FromDay),    is_atom(ToDay)
+           ; is_integer(FromDay), is_integer(ToDay) ->
     Time       = validate_time_intervals(TimeInt, []),
     IntFromDay = decode_day(FromDay),
     IntToDay   = decode_day(ToDay),
@@ -1321,6 +1323,7 @@ decode_day(thu)  -> 4;
 decode_day(fri)  -> 5;
 decode_day(sat)  -> 6;
 decode_day(sun)  -> 7;
+decode_day(N)  when is_integer(N), N > 0, N =< 7 -> N;
 decode_day(N)    -> throw(?FMT("Invalid day spec: ~w", [N])).
 
 day_of_the_week(1) -> mon;
