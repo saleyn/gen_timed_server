@@ -781,8 +781,12 @@ check_state_change(#state{} = S1, #state{} = S2) ->
 
 
 validate_sup_opts([{schedule, Sched} | Tail], State) ->
-    {?COMPILED_SPEC, SchedSpec} = validate_schedule(Sched),
-    validate_sup_opts(Tail, State#state{schedule=SchedSpec});
+    try
+        {?COMPILED_SPEC, SchedSpec} = validate_schedule(Sched),
+        validate_sup_opts(Tail, State#state{schedule=SchedSpec})
+    catch _:Err ->
+        throw({Err, Sched})
+    end;
 validate_sup_opts([{restart, {MaxR, MaxT, Delay}} | Tail], State) ->
     (is_integer(MaxR)  andalso MaxR  >= 0) orelse throw({invalid_intensity, MaxR}),
     (is_integer(MaxT)  andalso MaxT  >  0) orelse throw({invalid_period,    MaxT}),
