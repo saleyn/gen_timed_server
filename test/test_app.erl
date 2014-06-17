@@ -16,7 +16,7 @@
 -export([]).
 
 %% Application callbacks
--export([start/2, stop/1, config_change/3]).
+-export([start/0, start/2, stop/1, config_change/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -24,6 +24,9 @@
 %%%----------------------------------------------------------------------------
 %%% External API
 %%%----------------------------------------------------------------------------
+
+start() ->
+    application:start(test_app).
 
 %%%----------------------------------------------------------------------------
 %%% Application callbacks
@@ -41,6 +44,7 @@
 %% @end
 %%-----------------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
+    application:start(exec),
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %%-----------------------------------------------------------------------------
@@ -78,6 +82,9 @@ config_change(_Changed, _New, _Removed) ->
 %%-----------------------------------------------------------------------------
 init([]) ->
     SupOpt = application:get_env(test_app, sup, []),
+    Exec   = application:get_env(test_app, cmd, "sleep 2"),
+    CmdOpt = application:get_env(test_app, cmd_opts, []),
+    CmdSup = application:get_env(test_app, cmd_sup,  []),
     DbgOpt = application:get_env(test_app, dbg, []),
     SrvOpt = application:get_env(test_app, srv, []),
     RestartStrategy = {one_for_one, 0, 1},
@@ -87,14 +94,28 @@ init([]) ->
         , {timed_supervisor, start_link,% Start function {M,F,A}
             [test_sup, {test_srv, start_link, SrvOpt}, SupOpt, DbgOpt]
           }
-        , permanent                     % Restart = 
+        , permanent                     % Restart =
                                         %   permanent | transient | temporary
-        , 5000                          % Shutdown = 
+        , 5000                          % Shutdown =
                                         %   brutal_kill | int()>=0 | infinity
         , worker                        % Type = worker | supervisor
         , [test_app]                    % Modules = [Module] | dynamic
     },
-    {ok, {RestartStrategy, [SupSpec]}}.
+
+    CmdSpec = {
+          test_os                       % ID
+        , {timed_supervisor, start_link,% Start function {M,F,A}
+            [test_os, {test_srv, start_oscmd, [Exec, CmdOpt]}, CmdSup, DbgOpt]
+          }
+        , permanent                     % Restart =
+                                        %   permanent | transient | temporary
+        , 5000                          % Shutdown =
+                                        %   brutal_kill | int()>=0 | infinity
+        , worker                        % Type = worker | supervisor
+        , [test_srv]                    % Modules = [Module] | dynamic
+    },
+
+    {ok, {RestartStrategy, [SupSpec, CmdSpec]}}.
 
 %%%----------------------------------------------------------------------------
 %%% Internal functions

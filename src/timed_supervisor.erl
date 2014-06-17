@@ -17,7 +17,8 @@
 
 %% External exports
 -export([
-    start_link/3, start_link/4
+      start_link/3,    start_link/4
+    , start_monitor/3, start_monitor/4
 ]).
 
 %% Internal exports
@@ -25,6 +26,7 @@
       init/1, handle_call/4, handle_cast/3, handle_info/3
     , code_change/3, terminate/2
     , handle_start/2, handle_run/1, handle_stop/4
+    , format_status/2
 ]).
 
 -record(state, {
@@ -46,11 +48,12 @@ start_link(SupName, ChildMFA, SupOpts, DbgOpts)
      , is_list(SupOpts), is_list(DbgOpts) ->
     gen_timed_server:start_link(
         {local, SupName}, ?MODULE, [ChildMFA],
-        [no_spawn, {monitor_type, child_link} | filter_sup_opts(SupOpts)],
+        [no_spawn, {monitor_type, child_link}
+            | filter_out_opts(SupOpts, [spawn, no_spawn, monitor_type])],
         DbgOpts).
 
 %%-------------------------------------------------------------------------
-%% @spec (ChildMFA::mfa(), SupOpts::sup_options()) ->
+%% @spec (ChildMFA::mfa(), SupOpts::sup_options(), DbgOpts::list()) ->
 %%              {ok, Pid::pid()} | ignore | {error, Error}
 %% @doc Creates a timed supervisor as part of supervision tree without
 %%      a registered name.
@@ -62,7 +65,43 @@ start_link(ChildMFA, SupOpts, DbgOpts)
      , is_list(SupOpts), is_list(DbgOpts) ->
     gen_timed_server:start_link(
         ?MODULE, ChildMFA,
-        [no_spawn, {monitor_type, child_link} | filter_sup_opts(SupOpts)],
+        [no_spawn, {monitor_type, child_link}
+            | filter_out_opts(SupOpts, [spawn, no_spawn, monitor_type])],
+        DbgOpts).
+
+%%-------------------------------------------------------------------------
+%% @doc Supervises a monitored child process created by a call to the
+%%      `ChildFMA' callback according to the given `schedule' option.
+%% @see //stdlib/supervisor
+%% @end
+%%-------------------------------------------------------------------------
+-spec start_monitor(atom(), {atom(), atom(), list()},
+    gen_timed_server:sup_options(), list()) ->
+        {ok, pid()} | ignore | {error, any()}.
+start_monitor(SupName, ChildMFA, SupOpts, DbgOpts)
+  when is_atom(SupName), tuple_size(ChildMFA) =:= 3
+     , is_list(SupOpts), is_list(DbgOpts) ->
+    gen_timed_server:start_link(
+        {local, SupName}, ?MODULE, [ChildMFA],
+        [no_spawn, {monitor_type, monitor}
+            | filter_out_opts(SupOpts, [spawn, no_spawn, monitor_type])],
+        DbgOpts).
+
+%%-------------------------------------------------------------------------
+%% @spec (ChildMFA::mfa(), SupOpts::sup_options(), DbgOpts::list()) ->
+%%              {ok, Pid::pid()} | ignore | {error, Error}
+%% @doc Creates a timed supervisor as part of supervision tree without
+%%      a registered name.
+%% @see start_link/3
+%% @end
+%%-------------------------------------------------------------------------
+start_monitor(ChildMFA, SupOpts, DbgOpts)
+  when tuple_size(ChildMFA) =:= 3
+     , is_list(SupOpts), is_list(DbgOpts) ->
+    gen_timed_server:start_link(
+        ?MODULE, ChildMFA,
+        [no_spawn, {monitor_type, monitor}
+            | filter_out_opts(SupOpts, [spawn, no_spawn, monitor_type])],
         DbgOpts).
 
 %%-------------------------------------------------------------------------
@@ -108,13 +147,19 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+format_status(Opt, [PDict, #state{mfa={M,_F,A}=MFA}]) ->
+    case erlang:function_exported(M, format_status, 2) of
+    true                -> M:format_status(Opt, [PDict, [{mfa,MFA}]]);
+    false when A =/= [] -> [{args, A}];
+    false               -> []
+    end.
+
 %%%------------------------------------------------------------------------
 %%% Internal functions
 %%%------------------------------------------------------------------------
 
-filter_sup_opts(SupOpts) ->
+filter_out_opts(Opts, RemoveOpts) ->
     lists:filter(fun
-        (no_spawn) -> false;
-        ({I,_})    -> not lists:member(I, [spawn, monitor_type]);
+        ({I,_})    -> not lists:member(I, RemoveOpts);
         (_Other)   -> true
-    end, SupOpts).
+    end, Opts).

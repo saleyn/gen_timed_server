@@ -13,10 +13,11 @@
 
 %% API
 -export([start_link/0, start/0]).
+-export([start_oscmd/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-         code_change/3]).
+         code_change/3, format_status/2]).
 
 -record(state, {
 }).
@@ -44,6 +45,15 @@ start_link() ->
 %%-----------------------------------------------------------------------------
 start() ->
     gen_server:start_link(?MODULE, [], []).
+
+%%-----------------------------------------------------------------------------
+%% @spec () -> {ok, Pid}
+%% @doc Start an OS command
+%% @end
+%%-----------------------------------------------------------------------------
+start_oscmd(Cmd, Options) ->
+    {ok,Pid,_OsPid} = exec:run(Cmd, [link | Options]),
+    {ok, Pid}.
 
 %%%----------------------------------------------------------------------------
 %%% Callback functions from gen_server
@@ -123,6 +133,10 @@ terminate(Reason, #state{}) ->
 %%-----------------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+format_status(_, [_, [{mfa, {_M,start_oscmd,[A,_]}}]])  -> [{command, A}];
+format_status(_, [_, [{mfa, _}]])                       -> [];
+format_status(_, [_, #state{}])                         -> #state{}.
 
 %%%----------------------------------------------------------------------------
 %%% Internal functions

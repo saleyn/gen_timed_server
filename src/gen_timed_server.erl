@@ -77,8 +77,10 @@
 %%%        {stop, Reason, State}
 %%%
 %%%   handle_run(State) ->
-%%%    ==> void()                     when no `no_spawn' option provided
-%%%        {ok, Pid} | {stop, Reason} when `no_spawn' option is provided
+%%%    ==> void()                           when no `no_spawn' option provided
+%%%        {ok, Pid} | {stop, Reason}       when `no_spawn' option is provided
+%%%        {ok, Pid, Ref} | {stop, Reason}  when `no_spawn, {monitor_type, child_monitor}'
+%%%                                         options are provided
 %%%
 %%%    valid exit values are:
 %%%      * normal             - performs normal rescheduling
@@ -167,7 +169,7 @@
 %%%     SupOption   = {schedule, Schedule::schedule()} |
 %%%                   {restart, RestartSpec} |
 %%%                   no_spawn | {spawn, boolean()} |
-%%%                   {monitor_type, monitor | link | child_link} |
+%%%                   {monitor_type, monitor | link | child_link | child_monitor} |
 %%%                   {report_type, ReportType::term()} |
 %%%                   {shutdown, ShutdownType} |
 %%%                   {include_days, [DayOfMonth]} |
@@ -190,6 +192,10 @@
 %%%         <dd>When specified, the `handle_run/1' callback is executed in
 %%%             in the same gen_timed_server's process and is expected to
 %%%             return `{ok, Pid}', where `Pid' is the supervided child process.
+%%%             When `monitor_type' is `child_monitor' the expected return
+%%%             from `handle_run/1' is `{ok, Pid::pid(), Ref::reference()}',
+%%%             where `Ref' is the reference of the monitor to the spawned
+%%%             child process.
 %%%             In the absense of this option `handle_run/1' callback is
 %%%             executed in the context of a newly spawned process.  In either
 %%%             case the new `Pid' will be either monitored or linked to
@@ -202,6 +208,8 @@
 %%%             process will remain running.
 %%%             `link' - the supervisor will use a link to link to the child.
 %%%             `child_link' - the child will link to this supervisor on spawn
+%%%             by itself.</dd>
+%%%             `child_monitor' - the child `MFA' call will set up a monitor
 %%%             by itself.</dd>
 %%%     <dt>ReportType</dt>
 %%%         <dd>When specified, the
@@ -258,15 +266,20 @@
 
 -behaviour(gen_server).
 
+%% External exports
 -export([
       start/4, start/5, start_link/4, start_link/5
-    , call/2, call/3, cast/2, cast/3, reply/2
     , get_child_pid/1, swap_options/2, reschedule/1, restart/1
     , force_start/1
     , full_schedule/0, weekdays/0, dow_to_string/1, info/1, get/2
     , parse_time/1, split_options/1, format_valid_days/1
     , day_of_the_week/1, validate_schedule/1
     , print_timespec/1, format_time/1, now_to_datetime/1
+]).
+
+%% Internal exports
+-export([
+      call/2, call/3, cast/2, cast/3, reply/2
 ]).
 
 -export([behaviour_info/1]).
@@ -326,7 +339,7 @@
 behaviour_info(callbacks) ->
     [{init, 1}, {handle_call, 4}, {handle_cast, 3}, {handle_info, 3}
     ,{terminate, 2}, {code_change, 3}
-    ,{handle_start, 2}, {handle_run, 1}, {handle_stop, 4}
+    ,{handle_start, 2}, {handle_run, 1}, {handle_stop, 4}, {format_status, 2}
     ];
 behaviour_info(_Other) ->
   undefined.
@@ -797,7 +810,7 @@ validate_sup_opts([{spawn, Bool} | Tail], State) when is_boolean(Bool) ->
 validate_sup_opts([no_spawn | Tail], State) ->
     validate_sup_opts(Tail, State#state{spawn=false});
 validate_sup_opts([{monitor_type, M} | Tail], State)
-  when M=:=monitor; M=:=link; M=:=child_link ->
+  when M=:=monitor; M=:=link; M=:=child_link; M=:=child_monitor ->
     validate_sup_opts(Tail, State#state{monitor_type=M});
 validate_sup_opts([{report_type, Type}| Tail], State) ->
     validate_sup_opts(Tail, State#state{report_type=Type});
@@ -1130,9 +1143,10 @@ try_start_child2(#state{mod=Mod, mod_state=MState, report_type=Type, name=Name} 
             case State#state.spawn of
             true ->
                 case State#state.monitor_type of
-                monitor    -> erlang:spawn_monitor(Mod, handle_run, [MState]);
-                link       -> {erlang:spawn_link(Mod, handle_run, [MState]), undefined};
-                child_link -> throw({spawn_option_doesnt_support_child_link, Mod, MState})
+                monitor       -> erlang:spawn_monitor(Mod, handle_run, [MState]);
+                link          -> {erlang:spawn_link(Mod, handle_run, [MState]), undefined};
+                child_link    -> throw({spawn_not_supported_for_child_link,    Mod, MState});
+                child_monitor -> throw({spawn_not_supported_for_child_monitor, Mod, MState})
                 end;
             false ->
                 case {Mod:handle_run(MState), State#state.monitor_type} of
@@ -1145,6 +1159,8 @@ try_start_child2(#state{mod=Mod, mod_state=MState, report_type=Type, name=Name} 
                     lists:member(CPid, element(2, process_info(self(), links)))
                         orelse throw({child_process_not_linked, Mod, MState}),
                     {CPid, undefined};
+                {{ok, CPid, Ref}, child_monitor} when is_reference(Ref) ->
+                    {CPid, Ref};
                 {{error, Reason}, _} ->
                     erlang:error({error, Reason});
                 {{stop, Reason}, _} ->
@@ -1152,7 +1168,15 @@ try_start_child2(#state{mod=Mod, mod_state=MState, report_type=Type, name=Name} 
                 end
             end,
         ChildName = get_registered_name(ChildPid),
-        Report = [{started, [{pid, ChildName}, {mod, Mod}]}, {run_until, format_time(UntilTime)}],
+
+        case erlang:function_exported(Mod, format_status, 2) of
+        true  -> Info = Mod:format_status(normal, [[], MState]);
+        false -> Info = []
+        end,
+
+        Report = [{started, [{pid, ChildName}, {mod, Mod}]},
+                  {run_until, format_time(UntilTime)} | Info],
+
         report_progress(false, Name, Report, Type, State#state.id),
         cancel_timer(State#state.start_timer),
         cancel_timer(State#state.stop_timer),
