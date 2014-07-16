@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module timed_supervisor</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module timed_supervisor</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>A supervisor implementing gen_timed_server behavior.
+
+<p><b>Version:</b> $Revision$
+            $Date$</p>
+<p><b>Behaviours:</b> <a href="gen_timed_server.html"><tt>gen_timed_server</tt></a>.</p>
+<p><b>Authors:</b> Serge Aleynikov (<a href="mailto:saleyn@gmail.com"><tt>saleyn@gmail.com</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>A supervisor implementing gen_timed_server behavior.
+  
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#format_status-2">format_status/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_info-3">handle_info/3</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_run-1">handle_run/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_start-2">handle_start/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_stop-4">handle_stop/4</a></td><td></td></tr>
+<tr><td valign="top"><a href="#start_link-3">start_link/3</a></td><td>Creates a timed supervisor as part of supervision tree without
+       a registered name.</td></tr>
+<tr><td valign="top"><a href="#start_link-4">start_link/4</a></td><td>Creates a server process that will execute the MFA
+       callback according to the given <code>schedule</code> option.</td></tr>
+<tr><td valign="top"><a href="#start_monitor-3">start_monitor/3</a></td><td>Supervises a monitored child (doesn't spawn) process created by a
+       call to the <code>ChildFMA</code> callback according to the given <code>schedule</code>
+       option.</td></tr>
+<tr><td valign="top"><a href="#start_monitor-4">start_monitor/4</a></td><td>Supervises a monitored child (doesn't spawn) process created by a
+       call to the <code>ChildFMA</code> callback according to the given <code>schedule</code>
+       option.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="format_status-2">format_status/2</a></h3>
+<div class="spec">
+<p><tt>format_status(Opt, X2) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_info-3">handle_info/3</a></h3>
+<div class="spec">
+<p><tt>handle_info(Msg, State, Opaque) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_run-1">handle_run/1</a></h3>
+<div class="spec">
+<p><tt>handle_run(State) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_start-2">handle_start/2</a></h3>
+<div class="spec">
+<p><tt>handle_start(State, Opaque) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_stop-4">handle_stop/4</a></h3>
+<div class="spec">
+<p><tt>handle_stop(Action, Reason, State, Opaque) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="start_link-3">start_link/3</a></h3>
+<div class="spec">
+<p><pre>start_link(ChildMFA :: mfa(),
+           SupOpts :: <a href="#type-sup_options">sup_options()</a>,
+           DbgOpts :: list()) -&gt;
+              {ok, Pid :: pid()} | ignore | {error, Error}</pre></p>
+</div><p>Creates a timed supervisor as part of supervision tree without
+       a registered name.</p>
+<p><b>See also:</b> <a href="#start_link-3">start_link/3</a>.</p>
+
+<h3 class="function"><a name="start_link-4">start_link/4</a></h3>
+<div class="spec">
+<p><pre>start_link(SupName :: atom(),
+           ChildMFA :: {atom(), atom(), list()},
+           SupOpts :: <a href="gen_timed_server.html#type-sup_options">gen_timed_server:sup_options()</a>,
+           DbgOpts :: list()) -&gt;
+              {ok, pid()} | ignore | {error, any()}</pre></p>
+</div><p>Creates a server process that will execute the MFA
+       callback according to the given <code>schedule</code> option.</p>
+<p><b>See also:</b> <a href="http://www.erlang.org/doc/man/stdlib/doc/supervisor.html">//stdlib/supervisor</a>.</p>
+
+<h3 class="function"><a name="start_monitor-3">start_monitor/3</a></h3>
+<div class="spec">
+<p><pre>start_monitor(ChildMFA :: mfa(),
+              SupOpts :: <a href="#type-sup_options">sup_options()</a>,
+              DbgOpts :: list()) -&gt;
+                 {ok, Pid :: pid()} | ignore | {error, Error}</pre></p>
+</div><p>Supervises a monitored child (doesn't spawn) process created by a
+       call to the <code>ChildFMA</code> callback according to the given <code>schedule</code>
+       option.</p>
+<p><b>See also:</b> <a href="#start_link-3">start_link/3</a>.</p>
+
+<h3 class="function"><a name="start_monitor-4">start_monitor/4</a></h3>
+<div class="spec">
+<p><pre>start_monitor(SupName :: atom(),
+              ChildMFA :: {atom(), atom(), list()},
+              SupOpts :: <a href="gen_timed_server.html#type-sup_options">gen_timed_server:sup_options()</a>,
+              DbgOpts :: list()) -&gt;
+                 {ok, pid()} | ignore | {error, any()}</pre></p>
+</div><p>Supervises a monitored child (doesn't spawn) process created by a
+       call to the <code>ChildFMA</code> callback according to the given <code>schedule</code>
+       option.</p>
+<p><b>See also:</b> <a href="http://www.erlang.org/doc/man/stdlib/doc/supervisor.html">//stdlib/supervisor</a>.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 16 2014, 08:05:07.</i></p>
+</body>
+</html>

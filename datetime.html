@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module datetime</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module datetime</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Utility functions for date/time operations.
+
+<p><b>Version:</b> $Revision$
+            $Date$</p>
+<p><b>Authors:</b> Serge Aleynikov (<a href="mailto:saleyn@gmail.com"><tt>saleyn@gmail.com</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>Utility functions for date/time operations.
+  
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#datetime_to_now-1">datetime_to_now/1</a></td><td>Convert UTC <code>DateTime</code> to now() format.</td></tr>
+<tr><td valign="top"><a href="#datetime_to_string-1">datetime_to_string/1</a></td><td>Convert date and time to "YYYY-MM-DD HH:MM:SS".</td></tr>
+<tr><td valign="top"><a href="#filename-2">filename/2</a></td><td>Create a filename by appending "YYYYMMDD" to <code>Filename</code>.</td></tr>
+<tr><td valign="top"><a href="#local_seconds_since_epoch-1">local_seconds_since_epoch/1</a></td><td>Returns number of seconds since epoch to a given <code>DateTime</code>
+       expressed in local time.</td></tr>
+<tr><td valign="top"><a href="#local_time-1">local_time/1</a></td><td>Returns current local time as the number of {seconds, microseconds} since midnight.</td></tr>
+<tr><td valign="top"><a href="#localtime_to_now-1">localtime_to_now/1</a></td><td>Convert local <code>DateTime</code> to now() format.</td></tr>
+<tr><td valign="top"><a href="#parse_time-1">parse_time/1</a></td><td>Convert a string "HH:MM:SS" or "HH:MM" to {H, M, S}.</td></tr>
+<tr><td valign="top"><a href="#seconds_since_epoch-1">seconds_since_epoch/1</a></td><td>Returns number of seconds since epoch to a given <code>DateTime</code>
+       expressed in UTC.</td></tr>
+<tr><td valign="top"><a href="#seconds_since_epoch_to_now-1">seconds_since_epoch_to_now/1</a></td><td>Convert seconds since UTC epoch to now() format.</td></tr>
+<tr><td valign="top"><a href="#seconds_to_string-1">seconds_to_string/1</a></td><td>Convert seconds since midnight to "HH:MM:SS".</td></tr>
+<tr><td valign="top"><a href="#string_to_time-1">string_to_time/1</a></td><td>Convert a string "HH:MM:SS" or "HH:MM" to {H, M, S}.</td></tr>
+<tr><td valign="top"><a href="#time_to_string-1">time_to_string/1</a></td><td>Convert date and time to "HHMMSS".</td></tr>
+<tr><td valign="top"><a href="#time_to_string-2">time_to_string/2</a></td><td>Convert date and time to "HH:MM:SS" using separator <code>Sep</code>.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="datetime_to_now-1">datetime_to_now/1</a></h3>
+<div class="spec">
+<p><pre>datetime_to_now(DateTime :: <a href="#type-datetime">datetime()</a>) -&gt; Now :: <a href="#type-now">now()</a></pre></p>
+</div><p>Convert UTC <code>DateTime</code> to now() format.</p>
+
+<h3 class="function"><a name="datetime_to_string-1">datetime_to_string/1</a></h3>
+<div class="spec">
+<p><pre>datetime_to_string(DateTime :: <a href="#type-datetime">datetime()</a>) -&gt; string()</pre></p>
+</div><p>Convert date and time to "YYYY-MM-DD HH:MM:SS".</p>
+
+<h3 class="function"><a name="filename-2">filename/2</a></h3>
+<div class="spec">
+<p><pre>filename(Filename :: string(), Date :: <a href="#type-date">date()</a>) -&gt; string()</pre></p>
+</div><p>Create a filename by appending "YYYYMMDD" to <code>Filename</code>.</p>
+
+<h3 class="function"><a name="local_seconds_since_epoch-1">local_seconds_since_epoch/1</a></h3>
+<div class="spec">
+<p><pre>local_seconds_since_epoch(DateTime :: <a href="#type-datetime">datetime()</a>) -&gt;
+                             Seconds :: integer()</pre></p>
+</div><p>Returns number of seconds since epoch to a given <code>DateTime</code>
+       expressed in local time.</p>
+
+<h3 class="function"><a name="local_time-1">local_time/1</a></h3>
+<div class="spec">
+<p><pre>local_time(Now :: <a href="#type-now">now()</a>) -&gt; {Seconds, MicroSeconds}</pre></p>
+</div><p>Returns current local time as the number of {seconds, microseconds} since midnight.</p>
+
+<h3 class="function"><a name="localtime_to_now-1">localtime_to_now/1</a></h3>
+<div class="spec">
+<p><pre>localtime_to_now(DateTime :: <a href="#type-datetime">datetime()</a>) -&gt; Now :: <a href="#type-now">now()</a></pre></p>
+</div><p>Convert local <code>DateTime</code> to now() format.</p>
+
+<h3 class="function"><a name="parse_time-1">parse_time/1</a></h3>
+<div class="spec">
+<p><pre>parse_time(Time) -&gt; <a href="#type-time">time()</a></pre>
+<ul class="definitions"><li><pre>Time = <a href="#type-time">time()</a> | string()</pre></li></ul></p>
+</div><p>Convert a string "HH:MM:SS" or "HH:MM" to {H, M, S}. If time is
+       already a 3-element tuple, just check for valid time. Throw
+       {invalid_time, Time} on error.</p>
+
+<h3 class="function"><a name="seconds_since_epoch-1">seconds_since_epoch/1</a></h3>
+<div class="spec">
+<p><pre>seconds_since_epoch(DateTime :: <a href="#type-datetime">datetime()</a>) -&gt;
+                       Seconds :: integer()</pre></p>
+</div><p>Returns number of seconds since epoch to a given <code>DateTime</code>
+       expressed in UTC.</p>
+
+<h3 class="function"><a name="seconds_since_epoch_to_now-1">seconds_since_epoch_to_now/1</a></h3>
+<div class="spec">
+<p><pre>seconds_since_epoch_to_now(Secs :: integer()) -&gt; Nowtime :: <a href="#type-now">now()</a></pre></p>
+</div><p>Convert seconds since UTC epoch to now() format.</p>
+
+<h3 class="function"><a name="seconds_to_string-1">seconds_to_string/1</a></h3>
+<div class="spec">
+<p><pre>seconds_to_string(Seconds :: integer()) -&gt; string()</pre></p>
+</div><p>Convert seconds since midnight to "HH:MM:SS".</p>
+
+<h3 class="function"><a name="string_to_time-1">string_to_time/1</a></h3>
+<div class="spec">
+<p><pre>string_to_time(Str :: string()) -&gt; <a href="#type-time">time()</a></pre></p>
+</div><p>Convert a string "HH:MM:SS" or "HH:MM" to {H, M, S}. Throw
+       {invalid_time, Time} on error.</p>
+
+<h3 class="function"><a name="time_to_string-1">time_to_string/1</a></h3>
+<div class="spec">
+<p><pre>time_to_string(DateTime :: <a href="#type-datetime">datetime()</a>) -&gt; string()</pre></p>
+</div><p>Convert date and time to "HHMMSS".</p>
+
+<h3 class="function"><a name="time_to_string-2">time_to_string/2</a></h3>
+<div class="spec">
+<p><pre>time_to_string(DateTime :: <a href="#type-datetime">datetime()</a>, Sep :: char()) -&gt; string()</pre></p>
+</div><p>Convert date and time to "HH:MM:SS" using separator <code>Sep</code>.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 16 2014, 08:05:07.</i></p>
+</body>
+</html>

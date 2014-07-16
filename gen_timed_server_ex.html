@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module gen_timed_server_ex</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module gen_timed_server_ex</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Sample implementation of a gen_timed_server.
+
+<p><b>Version:</b> $Revision$
+            $Date$</p>
+<p><b>Behaviours:</b> <a href="gen_timed_server.html"><tt>gen_timed_server</tt></a>.</p>
+<p><b>Authors:</b> Serge Aleynikov (<a href="mailto:saleyn@gmail.com"><tt>saleyn@gmail.com</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2>Sample implementation of a gen_timed_server.  Implements a server
+        that executes for a given number of milliseconds and then exits
+        to be rescheduled in accordance with provided supervision options.
+  
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#handle_info-3">handle_info/3</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_run-1">handle_run/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_start-2">handle_start/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_stop-4">handle_stop/4</a></td><td></td></tr>
+<tr><td valign="top"><a href="#start-2">start/2</a></td><td>Creates a timed supervisor process outside of supervision tree.</td></tr>
+<tr><td valign="top"><a href="#start-3">start/3</a></td><td>Creates a timed supervisor process outside of supervision tree.</td></tr>
+<tr><td valign="top"><a href="#start_link-2">start_link/2</a></td><td>Creates a timed supervisor as part of supervision tree without
+       a registered name.</td></tr>
+<tr><td valign="top"><a href="#start_link-3">start_link/3</a></td><td>Creates a server process that will execute the handle_run/1
+       callback that will sleep Delay seconds.</td></tr>
+<tr><td valign="top"><a href="#state-1">state/1</a></td><td></td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="handle_info-3">handle_info/3</a></h3>
+<div class="spec">
+<p><tt>handle_info(Msg, State, Opaque) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_run-1">handle_run/1</a></h3>
+<div class="spec">
+<p><tt>handle_run(State) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_start-2">handle_start/2</a></h3>
+<div class="spec">
+<p><tt>handle_start(State, Opaque) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_stop-4">handle_stop/4</a></h3>
+<div class="spec">
+<p><tt>handle_stop(Action, Reason, State, Opaque) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="start-2">start/2</a></h3>
+<div class="spec">
+<p><tt>start(Opts, SupOpts) -&gt; any()</tt></p>
+</div><p>Equivalent to <tt>start_link / 2</tt>.</p>
+<p>Creates a timed supervisor process outside of supervision tree.</p>
+<p><b>See also:</b> <a href="#start_link-3">start_link/3</a>.</p>
+
+<h3 class="function"><a name="start-3">start/3</a></h3>
+<div class="spec">
+<p><tt>start(Name, Opts, SupOpts) -&gt; any()</tt></p>
+</div><p>Equivalent to <tt>start_link / 3</tt>.</p>
+<p>Creates a timed supervisor process outside of supervision tree.</p>
+<p><b>See also:</b> <a href="#start_link-3">start_link/3</a>.</p>
+
+<h3 class="function"><a name="start_link-2">start_link/2</a></h3>
+<div class="spec">
+<p><pre>start_link(ChildMFA :: mfa(), SupOpts :: <a href="#type-sup_options">sup_options()</a>) -&gt;
+              {ok, Pid :: pid()} | ignore | {error, Error}</pre></p>
+</div><p>Creates a timed supervisor as part of supervision tree without
+       a registered name.</p>
+<p><b>See also:</b> <a href="#start_link-3">start_link/3</a>.</p>
+
+<h3 class="function"><a name="start_link-3">start_link/3</a></h3>
+<div class="spec">
+<p><pre>start_link(Name :: <a href="#type-sup_name">sup_name()</a>,
+           ChildMFA :: mfa(),
+           SupOpts :: <a href="#type-sup_options">sup_options()</a>) -&gt;
+              {ok, Pid :: pid()} | ignore | {error, Error}</pre></p>
+</div><p>Creates a server process that will execute the handle_run/1
+       callback that will sleep Delay seconds.</p>
+<p><b>See also:</b> <a href="http://www.erlang.org/doc/man/stdlib/doc/supervisor.html">//stdlib/supervisor</a>.</p>
+
+<h3 class="function"><a name="state-1">state/1</a></h3>
+<div class="spec">
+<p><pre>state(Name :: pid()) -&gt; #state{}</pre></p>
+</div>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 16 2014, 08:05:06.</i></p>
+</body>
+</html>

@@ -1,0 +1,519 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module gen_timed_server</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module gen_timed_server</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module abstracts the process scheduling facility into a
+   reusable behavior.
+
+<p><b>Version:</b> $Revision$
+            $Date$</p>
+<p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
+<p><b>Authors:</b> Serge Aleynikov (<a href="mailto:saleyn@gmail.com"><tt>saleyn@gmail.com</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2><p>This module abstracts the process scheduling facility into a
+   reusable behavior.  It implements a behavior that includes features of
+   <code>gen_server</code> and <code>supervisor</code> that allows building scheduling
+   features to run an instance of <code>gen_server</code> on given days
+   of week/months between certain hours of day.  The <code>supervisor</code> part
+   of the server handles all scheduling events, and the <code>execution</code>
+   part of the server handles spawning a separate process that calls
+   <code>handle_run/1</code> callback.
+     The server can execute a "daemon" like long-lived functionality
+   or some short-lived perioric task that will be rescheduled on the
+   following run interval.  The behavior is somewhat similar to
+   functionality of <code>cron</code> but designed for scheduling Erlang processes.</p>
+  
+   Scheduling features include abilities to:
+   <ul>
+   <li>Run a server on given days of week between one or more
+       range of hours</li>
+   <li>Specify periodic execution. E.g. a task can run every <code>N</code>
+       seconds/minutes/hours between given hours of day</li>
+   <li>Limit execution of a server to given days of month specified
+       from first day of month or from last day of month</li>
+   <li>Specify task restart strategy that allows restarting the
+       scheduled process up until the maximum restart intensity is
+       reached expressed in terms of the number of restarts within
+       a given number of seconds and allows specifying restart delay
+       expressed in seconds.</li>
+   <li>Specify child process shutdown type - immediate or in a given
+       interval</li>
+   <li>Log all scheduling events to <code>event_logger</code> using an optional
+       custom event report type</li>
+   </ul>
+  
+   The user module should export the following callbacks (note that
+   the signature of these functions is slightly different from
+   gen_server's by having an extra <code>Opaque</code> argument. Use <code>get/2</code>
+   function to inspect its value):
+   <pre>     init(Args)
+       ==&gt; {ok, State}
+           {ok, State, Timeout}
+           ignore
+           {stop, Reason}
+  
+     handle_call(Msg, From, State, Opaque)
+      ==&gt; {reply, Reply, State}
+          {reply, Reply, State, Timeout}
+          {noreply, State}
+          {noreply, State, Timeout}
+          {stop, Reason, Reply, State}
+              Reason = normal | shutdown | Term terminate(State) is called
+  
+     handle_cast(Msg, State, Opaque)
+      ==&gt; {noreply, State}
+          {noreply, State, Timeout}
+          {stop, Reason, State}
+                Reason = normal | shutdown | Term terminate(State) is called
+  
+     handle_info(Info, State, Opaque)
+      ==&gt; {noreply, State}
+          {noreply, State, Timeout}
+          {stop, Reason, State}
+                Reason = normal | shutdown | Term, terminate(State) is called
+  
+     terminate(Reason, State) Let the user module clean up
+          always called when server terminates
+      ==&gt; ok
+  
+   The following callbacks happen on start/run/stop of a scheduled
+   child process:
+  
+     handle_start(State, Opaque) -&gt;
+      ==&gt; {start, State}        continues with normal start
+          {skip, State}         reschedules startup for the next valid interval
+          {stop, Reason, State}
+  
+     handle_run(State) -&gt;
+      ==&gt; void()                           when no `no_spawn' option provided
+          {ok, Pid} | {stop, Reason}       when `no_spawn' option is provided
+          {ok, Pid, Ref} | {stop, Reason}  when `no_spawn, {monitor_type, child_monitor}'
+                                           options are provided
+  
+      valid exit values are:
+        * normal             - performs normal rescheduling
+        * shutdown           - exits the gen_server without any further rescheduling
+        * {shutdown, Reason} - exits gen_server with `Reason' without rescheduling
+        * Term               - performs supervised recovery by applying
+                               given restart policy
+     handle_stop(Action, Reason, State, Opaque) -&gt;
+                 Action = continue | stop
+      ==&gt; {continue, Reason, State}    continues with default rescheduling
+          {stop, Reason, State}</pre>
+   Also note that whenever the term <code>supervisor</code> is used in this document
+   it refers to the scheduling part of the <code>gen_timed_server</code> behavior
+   rather than a separate parent supervisor process.
+   <pre>     Examples:
+       Execute M:handle_run/1 every Monday between 9:30am and 5:00pm:
+         gen_timed_server:start_link(M, Args,
+             [{schedule, [{mon, [{"9:30:00", "17:00:00"}]}]}], []).
+  
+       Execute M:handle_run/1 every last two days of a month between
+       9:30am and 5:00pm:
+         gen_timed_server:start_link(M, Args,
+             [{schedule, [{any, [{"9:30:00", "17:00:00"}]}]},
+              {include_days, [-1,-2]}], []).
+  
+       Execute M:handle_run/1 every 5 minutes on every last ten days of
+       a month between 1:00am and 9:00pm:
+         gen_timed_server:start_link(M, Args,
+             [{schedule, [{any, [{"1:00:00", "21:00:00", "00:05:00"}]}]},
+              {include_days, [{-1,-10}]}]).
+  
+       Execute M:handle_run/1 every day except for the first 5 days of
+       a month between 1:00am and 9:00pm:
+         gen_timed_server:start_link(M, Args,
+             [{schedule, [{any, [{"1:00:00", "21:00:00"}]}]},
+              {exclude_days, [{1,5}]}]).
+  
+       Execute M:handle_run/1 every Monday between 9:30am and 5:00pm
+       repeating every 30 minutes:
+         gen_timed_server:start_link(M, Args,
+             [{schedule, [{mon, [{"9:30:00", "17:00:00", "00:30:00"}]}]}]).
+  
+       Execute M:handle_run/1 every Mon,Tue,Wed between 9:30am and 5:00pm:
+         timed_supervisor:start_link({M,F,A},
+             [{schedule, [{[mon,tue,wed], [{{9,30,0}, {17,0,0}}]}]}]).
+  
+       Execute M:handle_run/1 every Mon between 9am and 5pm, and Wed
+       between 8am and 9pm:
+         gen_timed_server:start_link(M, Args,
+             [{schedule, [{mon, [{{9,0,0}, {17,0,0}}]},
+                          {wed, [{{8,0,0}, {21,0,0}}]}]}]).
+  
+       Execute M:handle_run/1 every Monday between 9:00am and 5:00pm, and
+       set the maximum restart intensity to 3 failures within 20 seconds
+       with delay between restarts of 4 seconds:
+         gen_timed_server:start_link(M, Args,
+               [{schedule, [{mon, [{"9:00:00", "17:00:00"}]}]},
+                {restart, {3, 20, 4}}]).</pre>
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-day">day()</a></h3>
+<p><pre>day() = mon | tue | wed | thu | fri | sat | sun</pre></p>
+
+
+<h3 class="typedecl"><a name="type-hourrange">hourrange()</a></h3>
+<p><pre>hourrange() = {FromTime :: <a href="#type-time">time()</a>, ToTime :: <a href="#type-time">time()</a>}
+            | {FromTime :: <a href="#type-time">time()</a>,
+               ToTime :: <a href="#type-time">time()</a>,
+               Repeat :: <a href="#type-time">time()</a>}</pre></p>
+<p>Represents the time interval between <code>FromTime</code>
+                         and <code>ToTime</code>. Optionally defines repetition
+                         period <code>Repeat</code> in hours:minutes:seconds (minimum
+                         repetition is one minute).</p>
+
+<h3 class="typedecl"><a name="type-schedule">schedule()</a></h3>
+<p><pre>schedule() = [DaySchedule]</pre>
+<ul class="definitions"><li><pre>DaySchedule = {DayRange, [TimeRange :: <a href="#type-hourrange">hourrange()</a>]}</pre></li><li><pre>DayRange = any
+         | <a href="#type-day">day()</a>
+         | [<a href="#type-day">day()</a>]
+         | {FromDay :: <a href="#type-day">day()</a>, ToDay :: <a href="#type-day">day()</a>}</pre></li><li><pre>Hours = [<a href="#type-hourrange">hourrange()</a>]</pre></li></ul></p>
+
+
+<h3 class="typedecl"><a name="type-sup_name">sup_name()</a></h3>
+<p><pre>sup_name() = atom() | pid()</pre></p>
+
+
+<h3 class="typedecl"><a name="type-sup_options">sup_options()</a></h3>
+<p><pre>sup_options() = [SupOption]</pre></p>
+<p><p>SupOption   = {schedule, Schedule::schedule()} |                     
+{restart, RestartSpec} |                     
+no_spawn | {spawn, boolean()} |                     
+{monitor_type, monitor | link | child_link | child_monitor} |                     
+{report_type, ReportType::term()} |                     
+{shutdown, ShutdownType} |                     
+{include_days, [DayOfMonth]} |                     
+{exclude_days, [DayOfMonth]} |                     
+{id, ID}       
+RestartSpec = {MaxR::integer(), MaxTime::integer(), Delay::integer()}}       
+DayOfMonth  = integer() | {FromDay::integer(), ToDay::integer()}</p>
+  
+       Timed Supervisor's options.
+       <dl>
+       <dt>Schedule</dt>
+           <dd>Contains a schedule when supervised child Pid needs to run.</dd>
+       <dt>RestartSpec</dt>
+           <dd>If specified, the failed child Pid will be restarted up to
+               <code>MaxR</code> times in <code>MaxTime</code> seconds with <code>Delay</code> number of
+               seconds between successive restarts. By default RestartSpec
+               is <code>{_MaxR = 0, _MaxT = 1, _Delay = 0}</code> (auto restart is
+               disabled)</dd>
+       <dt>no_spawn | {spawn, boolean()}</dt>
+           <dd>When specified, the <code>handle_run/1</code> callback is executed in
+               in the same gen_timed_server's process and is expected to
+               return <code>{ok, Pid}</code>, where <code>Pid</code> is the supervided child process.
+               When <code>monitor_type</code> is <code>child_monitor</code> the expected return
+               from <code>handle_run/1</code> is <code>{ok, Pid::pid(), Ref::reference()}</code>,
+               where <code>Ref</code> is the reference of the monitor to the spawned
+               child process.
+               In the absense of this option <code>handle_run/1</code> callback is
+               executed in the context of a newly spawned process.  In either
+               case the new <code>Pid</code> will be either monitored or linked to
+               depending on the presense of <code>monitor_type</code> option.</dd>
+       <dt>monitor_type</dt>
+           <dd><code>monitor</code> - the superviser will use monitor to monitor the
+               child process.  The implication is that it'll
+               be able to detect the death of the child, but when the
+               supervisor process is killed with <code>kill</code> reason the child
+               process will remain running.
+               <code>link</code> - the supervisor will use a link to link to the child.
+               <code>child_link</code> - the child will link to this supervisor on spawn
+               by itself.
+               <code>child_monitor</code> - the child <code>MFA</code> call will set up a monitor
+               by itself.</dd>
+       <dt>ReportType</dt>
+           <dd>When specified, the
+               <code>error_logger:error_report({Type, ReportType}, Report)</code>
+               and <code>error_logger:info_report({Type, ReportType}, Report)</code>
+               will be used instead of <code>error_logger:*_report/1</code> calls
+               (with Type = supervisor_report | progress), so that a custom
+               event logger can be installed to log these events.</dd>
+       <dt>ShutdownType</dt>
+           <dd><code>brutal_kill</code> - kill child using <code>exit(Pid, kill)</code>.</dd>
+           <dd><code>integer() &gt;= 0</code> - kill child with <code>exit(Pid, shutdown)</code>
+               followed by <code>exit(Pid, kill)</code> after this number of
+               milleseconds.</dd>
+       <dt>{include_days, [DayOfMonth]} or {exclude_days, [DayOfMonth]}</dt>
+           <dd>These options are used to include/exclude execution of a
+               child process on given days of a month.  The <code>DayOfMonth</code>
+               can be represented by a positive integer in range
+               [1...31] to indicate a day since the beginning of a month
+               or a negative integer in range [-1...-31] to indicate
+               a day since the end of a month (-1 is the last day of
+               month).  Alternativey <code>DayOfMonth</code> can be represented
+               as a range tuple: <code>{FromDay::integer(), ToDay::integer()}</code></dd>
+       <dt>{id, ID}</dt>
+           <dd>Implementation-specific identifier of the child process
+               recorded in the report log</dd>
+       </dl>
+  </p>
+
+<h3 class="typedecl"><a name="type-time">time()</a></h3>
+<p><pre>time() = string()
+       | {Hour :: integer(),
+          Min :: integer(),
+          Sec :: integer()}</pre></p>
+<p>Time can be represented as a "HH:MM:SS" string,
+                         "HH:MM" string or a tuple.</p>
+
+<h3 class="typedecl"><a name="type-timespec">timespec()</a></h3>
+<p><pre>timespec() = 
+    {Mon :: <a href="#type-hourrange">hourrange()</a>,
+     Tue :: <a href="#type-hourrange">hourrange()</a>,
+     Wed :: <a href="#type-hourrange">hourrange()</a>,
+     Thu :: <a href="#type-hourrange">hourrange()</a>,
+     Fri :: <a href="#type-hourrange">hourrange()</a>,
+     Sat :: <a href="#type-hourrange">hourrange()</a>,
+     Sun :: <a href="#type-hourrange">hourrange()</a>}</pre></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#call-2">call/2</a></td><td>Equivalent to <a href="gen_server.html#call-2"><tt>gen_server:call(Name, Cmd)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#call-3">call/3</a></td><td>Equivalent to <a href="gen_server.html#call-3"><tt>gen_server:call(Name, Cmd, Timeout)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#cast-2">cast/2</a></td><td>Equivalent to <a href="gen_server.html#cast-2"><tt>gen_server:cast(Name, Cmd)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#cast-3">cast/3</a></td><td>Equivalent to <a href="gen_server.html#cast-3"><tt>gen_server:cast(Name, Cmd, Timeout)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#day_of_the_week-1">day_of_the_week/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#dow_to_string-1">dow_to_string/1</a></td><td>Converts a day of week to a string.</td></tr>
+<tr><td valign="top"><a href="#force_start-1">force_start/1</a></td><td>Force immediate start of child process if it is not currently
+       running irrespective of the scheduling options.</td></tr>
+<tr><td valign="top"><a href="#format_time-1">format_time/1</a></td><td>Format time as "HH:MM:SS".</td></tr>
+<tr><td valign="top"><a href="#format_valid_days-1">format_valid_days/1</a></td><td>Convert a <code>DaysMask</code> stored in <code>#state.valid_days</code> to a list
+       of days or day ranges with positive values indicating days of
+       month from the beginning of a month, and negative values - from
+       the end of a month.</td></tr>
+<tr><td valign="top"><a href="#full_schedule-0">full_schedule/0</a></td><td>Return a schedule covering all days of week / hours of day.</td></tr>
+<tr><td valign="top"><a href="#get-2">get/2</a></td><td>Get an item from <code>Opaque</code> structure passed to most of behavior
+       callbacks.</td></tr>
+<tr><td valign="top"><a href="#get_child_pid-1">get_child_pid/1</a></td><td>Return the pid of the process executing handle_run/2 callback or
+       <code>undefined</code> if the process is not running.</td></tr>
+<tr><td valign="top"><a href="#info-1">info/1</a></td><td>Return supervisor's internal state.</td></tr>
+<tr><td valign="top"><a href="#now_to_datetime-1">now_to_datetime/1</a></td><td>Same as <code>calendar:now_to_local_time/1</code> but can accept <code>undefined</code>.</td></tr>
+<tr><td valign="top"><a href="#parse_time-1">parse_time/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#print_timespec-1">print_timespec/1</a></td><td>Converts a validated timespec() into a printable string.</td></tr>
+<tr><td valign="top"><a href="#reply-2">reply/2</a></td><td>Equivalent to <a href="gen_server.html#reply-2"><tt>gen_server:reply(Client, Reply)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#reschedule-1">reschedule/1</a></td><td>Terminate child with reason <code>shutdown</code> and reschedule it for
+       the next interval in the schedule specification.</td></tr>
+<tr><td valign="top"><a href="#restart-1">restart/1</a></td><td>Bounce child process with reason <code>shutdown</code>.</td></tr>
+<tr><td valign="top"><a href="#split_options-1">split_options/1</a></td><td>Separated gen_timed_server's supervision options from other
+       options found in the list.</td></tr>
+<tr><td valign="top"><a href="#start-4">start/4</a></td><td>Creates a timed server process outside of supervision tree.</td></tr>
+<tr><td valign="top"><a href="#start-5">start/5</a></td><td>Creates a timed server process outside of supervision tree.</td></tr>
+<tr><td valign="top"><a href="#start_link-4">start_link/4</a></td><td>Creates a timed server as part of supervision tree without
+       a registered name.</td></tr>
+<tr><td valign="top"><a href="#start_link-5">start_link/5</a></td><td>Creates a timed server process as part of a supervision tree.</td></tr>
+<tr><td valign="top"><a href="#swap_options-2">swap_options/2</a></td><td>Replace child's specification and restart (according to schedule)
+       the child process if it was running.</td></tr>
+<tr><td valign="top"><a href="#validate_schedule-1">validate_schedule/1</a></td><td>Validate day/time specification.</td></tr>
+<tr><td valign="top"><a href="#weekdays-0">weekdays/0</a></td><td>Return a list of weekday atoms.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="call-2">call/2</a></h3>
+<div class="spec">
+<p><tt>call(Name, Cmd) -&gt; any()</tt></p>
+</div><p>Equivalent to <a href="gen_server.html#call-2"><tt>gen_server:call(Name, Cmd)</tt></a>.</p>
+
+
+<h3 class="function"><a name="call-3">call/3</a></h3>
+<div class="spec">
+<p><tt>call(Name, Cmd, Timeout) -&gt; any()</tt></p>
+</div><p>Equivalent to <a href="gen_server.html#call-3"><tt>gen_server:call(Name, Cmd, Timeout)</tt></a>.</p>
+
+
+<h3 class="function"><a name="cast-2">cast/2</a></h3>
+<div class="spec">
+<p><tt>cast(Name, Cmd) -&gt; any()</tt></p>
+</div><p>Equivalent to <a href="gen_server.html#cast-2"><tt>gen_server:cast(Name, Cmd)</tt></a>.</p>
+
+
+<h3 class="function"><a name="cast-3">cast/3</a></h3>
+<div class="spec">
+<p><tt>cast(Name, Cmd, Timeout) -&gt; any()</tt></p>
+</div><p>Equivalent to <a href="gen_server.html#cast-3"><tt>gen_server:cast(Name, Cmd, Timeout)</tt></a>.</p>
+
+
+<h3 class="function"><a name="day_of_the_week-1">day_of_the_week/1</a></h3>
+<div class="spec">
+<p><tt>day_of_the_week(X1) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="dow_to_string-1">dow_to_string/1</a></h3>
+<div class="spec">
+<p><pre>dow_to_string(DayOfWeek :: integer()) -&gt; Result :: string()</pre></p>
+</div><p>Converts a day of week to a string. Special case: when argument
+       is 0, it returns "Today".</p>
+
+<h3 class="function"><a name="force_start-1">force_start/1</a></h3>
+<div class="spec">
+<p><pre>force_start(Name) -&gt; ok | stopped | {error, Reason}</pre></p>
+</div><p>Force immediate start of child process if it is not currently
+       running irrespective of the scheduling options.</p>
+
+<h3 class="function"><a name="format_time-1">format_time/1</a></h3>
+<div class="spec">
+<p><pre>format_time(X1 :: Time) -&gt; string()</pre></p>
+</div><p>Format time as "HH:MM:SS".</p>
+
+<h3 class="function"><a name="format_valid_days-1">format_valid_days/1</a></h3>
+<div class="spec">
+<p><pre>format_valid_days(Int ::
+                      {FromBegin :: integer(),
+                       FromEnd :: integer()}) -&gt;
+                     ValidDays</pre>
+<ul class="definitions"><li><pre>ValidDays = [ValidDay]</pre></li><li><pre>ValidDay = {FromDay :: integer(), ToDay :: integer()} | Day</pre></li><li><pre>Day = integer()</pre></li></ul></p>
+</div><p>Convert a <code>DaysMask</code> stored in <code>#state.valid_days</code> to a list
+       of days or day ranges with positive values indicating days of
+       month from the beginning of a month, and negative values - from
+       the end of a month.</p>
+
+<h3 class="function"><a name="full_schedule-0">full_schedule/0</a></h3>
+<div class="spec">
+<p><pre>full_schedule() -&gt; <a href="#type-schedule">schedule()</a></pre></p>
+</div><p>Return a schedule covering all days of week / hours of day.  This
+       is a convenience function for a default schedule value.</p>
+
+<h3 class="function"><a name="get-2">get/2</a></h3>
+<div class="spec">
+<p><pre>get(Item :: atom(), State :: Opaque) -&gt; Value | [Value]</pre></p>
+</div><p>Get an item from <code>Opaque</code> structure passed to most of behavior
+       callbacks.  If <code>Item</code> is <code>all</code> then <code>[Value]</code> list is returned.</p>
+
+<h3 class="function"><a name="get_child_pid-1">get_child_pid/1</a></h3>
+<div class="spec">
+<p><pre>get_child_pid(Name) -&gt; pid() | undefined</pre></p>
+</div><p>Return the pid of the process executing handle_run/2 callback or
+       <code>undefined</code> if the process is not running.</p>
+
+<h3 class="function"><a name="info-1">info/1</a></h3>
+<div class="spec">
+<p><pre>info(Name) -&gt; State :: list()</pre></p>
+</div><p>Return supervisor's internal state.</p>
+
+<h3 class="function"><a name="now_to_datetime-1">now_to_datetime/1</a></h3>
+<div class="spec">
+<p><pre>now_to_datetime(Now) -&gt; undefined | {Date, Time}</pre>
+<ul class="definitions"><li><pre>Now = undefined | <a href="#type-now">now()</a></pre></li></ul></p>
+</div><p>Same as <code>calendar:now_to_local_time/1</code> but can accept <code>undefined</code>.</p>
+
+<h3 class="function"><a name="parse_time-1">parse_time/1</a></h3>
+<div class="spec">
+<p><tt>parse_time(Time) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="print_timespec-1">print_timespec/1</a></h3>
+<div class="spec">
+<p><pre>print_timespec(TimeSpec :: <a href="#type-timespec">timespec()</a>) -&gt; Result :: string()</pre></p>
+</div><p>Converts a validated timespec() into a printable string.</p>
+
+<h3 class="function"><a name="reply-2">reply/2</a></h3>
+<div class="spec">
+<p><tt>reply(Client, Reply) -&gt; any()</tt></p>
+</div><p>Equivalent to <a href="gen_server.html#reply-2"><tt>gen_server:reply(Client, Reply)</tt></a>.</p>
+
+
+<h3 class="function"><a name="reschedule-1">reschedule/1</a></h3>
+<div class="spec">
+<p><pre>reschedule(Name) -&gt; ok | {error, Why}</pre></p>
+</div><p>Terminate child with reason <code>shutdown</code> and reschedule it for
+       the next interval in the schedule specification.</p>
+
+<h3 class="function"><a name="restart-1">restart/1</a></h3>
+<div class="spec">
+<p><pre>restart(Name) -&gt; ok | stopped</pre></p>
+</div><p>Bounce child process with reason <code>shutdown</code>.  If process is not
+       scheduled to run, nothing happens and the supervisor will activate
+       it at the future scheduled time.</p>
+
+<h3 class="function"><a name="split_options-1">split_options/1</a></h3>
+<div class="spec">
+<p><pre>split_options(Options :: list()) -&gt;
+                 {SupOptions :: <a href="#type-sup_options">sup_options()</a>, Rest}</pre></p>
+</div><p>Separated gen_timed_server's supervision options from other
+       options found in the list.</p>
+
+<h3 class="function"><a name="start-4">start/4</a></h3>
+<div class="spec">
+<p><tt>start(Mod, Args, SupOpts, GenSrvOpts) -&gt; any()</tt></p>
+</div><p>Equivalent to <tt>start_link / 2</tt>.</p>
+<p>Creates a timed server process outside of supervision tree.</p>
+<p><b>See also:</b> <a href="#start_link-3">start_link/3</a>.</p>
+
+<h3 class="function"><a name="start-5">start/5</a></h3>
+<div class="spec">
+<p><tt>start(Name, Mod, Args, SupOpts, GenSrvOpts) -&gt; any()</tt></p>
+</div><p>Equivalent to <tt>start_link / 3</tt>.</p>
+<p>Creates a timed server process outside of supervision tree.</p>
+<p><b>See also:</b> <a href="#start_link-3">start_link/3</a>.</p>
+
+<h3 class="function"><a name="start_link-4">start_link/4</a></h3>
+<div class="spec">
+<p><pre>start_link(Mod :: atom(),
+           Args :: list(),
+           SupOpts :: <a href="#type-sup_options">sup_options()</a>,
+           GenSrvOpts :: list()) -&gt;
+              {ok, Pid :: pid()} | ignore | {error, Error}</pre></p>
+</div><p>Creates a timed server as part of supervision tree without
+       a registered name.</p>
+<p><b>See also:</b> <a href="#start_link-3">start_link/3</a>.</p>
+
+<h3 class="function"><a name="start_link-5">start_link/5</a></h3>
+<div class="spec">
+<p><pre>start_link(Name :: <a href="#type-sup_name">sup_name()</a>,
+           Mod :: Module,
+           Args,
+           SupOpts :: <a href="#type-sup_options">sup_options()</a>,
+           GenSrvOpts :: Options) -&gt;
+              {ok, Pid :: pid()} | ignore | {error, Error}</pre></p>
+</div><p>Creates a timed server process as part of a supervision tree.  This
+       function will, among other things, ensure that the supervisor is
+       linked to the calling process (its supervisor).  The child process
+       started by <code>{M, F, A}</code> will only be run between time windows
+       specified by the <code>schedule</code> option.  <code>RestartSpec</code> option allows
+       to define MaxR number of restarts within MaxTime window
+       (in seconds) with a restart Delay seconds.  When maximum restart
+       intensity is reached and the process keeps failing, this supervisor
+       process fails with reason <code>reached_max_restart_intensity</code>. Note that
+       default <code>restart</code> option is <code>{_MaxR = 0, _MaxT = 1, _Delay = 0}</code>
+       meaning that the child process won't be auto restarted.
+ </p>
+<p><b>See also:</b> <a href="http://www.erlang.org/doc/man/stdlib/doc/supervisor.html">//stdlib/supervisor</a>.</p>
+
+<h3 class="function"><a name="swap_options-2">swap_options/2</a></h3>
+<div class="spec">
+<p><pre>swap_options(Name, SupOptions :: <a href="#type-sup_options">sup_options()</a>) -&gt;
+                ok | {error, Why}</pre></p>
+</div><p>Replace child's specification and restart (according to schedule)
+       the child process if it was running.</p>
+
+<h3 class="function"><a name="validate_schedule-1">validate_schedule/1</a></h3>
+<div class="spec">
+<p><pre>validate_schedule(DaySpecs :: <a href="#type-schedule">schedule()</a>) -&gt;
+                     {'$ts$', Result :: <a href="#type-timespec">timespec()</a>}</pre></p>
+</div><p>Validate day/time specification. Thow error on invalid specification
+       format.</p>
+
+<h3 class="function"><a name="weekdays-0">weekdays/0</a></h3>
+<div class="spec">
+<p><pre>weekdays() -&gt; [Day :: atom()]</pre></p>
+</div><p>Return a list of weekday atoms</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 16 2014, 08:05:07.</i></p>
+</body>
+</html>
