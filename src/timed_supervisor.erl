@@ -70,8 +70,9 @@ start_link(ChildMFA, SupOpts, DbgOpts)
         DbgOpts).
 
 %%-------------------------------------------------------------------------
-%% @doc Supervises a monitored child process created by a call to the
-%%      `ChildFMA' callback according to the given `schedule' option.
+%% @doc Supervises a monitored child (doesn't spawn) process created by a
+%%      call to the `ChildFMA' callback according to the given `schedule'
+%%      option.
 %% @see //stdlib/supervisor
 %% @end
 %%-------------------------------------------------------------------------
@@ -90,8 +91,9 @@ start_monitor(SupName, ChildMFA, SupOpts, DbgOpts)
 %%-------------------------------------------------------------------------
 %% @spec (ChildMFA::mfa(), SupOpts::sup_options(), DbgOpts::list()) ->
 %%              {ok, Pid::pid()} | ignore | {error, Error}
-%% @doc Creates a timed supervisor as part of supervision tree without
-%%      a registered name.
+%% @doc Supervises a monitored child (doesn't spawn) process created by a
+%%      call to the `ChildFMA' callback according to the given `schedule'
+%%      option.
 %% @see start_link/3
 %% @end
 %%-------------------------------------------------------------------------

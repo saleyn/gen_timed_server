@@ -27,12 +27,11 @@ github-docs:
 	else \
 		git checkout -b gh-pages; \
 	fi
-	git checkout master src Makefile rebar.*
+	git checkout master -- src Makefile rebar.*
 	make docs
-	make clean
-	rm -fr ebin src Makefile erl_crash.dump rebar.* README*
 	mv doc/*.* .
-	rm -fr doc
+	make clean
+	rm -fr doc ebin src Makefile erl_crash.dump rebar.* README* test
 	@FILES="$(shell git st -uall --porcelain | sed -n '/^?? [A-Za-z0-9]/{s/?? //p}')"; \
 	for f in $$FILES ; do \
 		echo "Adding $$f"; git add $$f; \
@@ -42,7 +41,7 @@ github-docs:
 		then git push origin +gh-pages; \
 		else ret=1; git reset --hard; \
 		fi; \
-		set -e; git checkout master; git branch -D gh-pages; exit $$ret"
+		set -e; git checkout master && echo 'Switched to master' && git branch -D gh-pages; exit $$ret"
 
 tar:
 	@rm -f $(TARBALL).tgz; \
