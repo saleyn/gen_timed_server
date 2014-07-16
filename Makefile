@@ -32,7 +32,7 @@ github-docs:
 	mv doc/*.* .
 	make clean
 	rm -fr doc ebin src Makefile erl_crash.dump rebar.* README* test
-	@FILES="$(shell git st -uall --porcelain | sed -n '/^?? [A-Za-z0-9]/{s/?? //p}')"; \
+	@FILES=`git st -uall --porcelain | sed -n '/^?? [A-Za-z0-9]/{s/?? //p}')`; \
 	for f in $$FILES ; do \
 		echo "Adding $$f"; git add $$f; \
 	done
