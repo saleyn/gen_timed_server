@@ -208,7 +208,7 @@
 %%%             process will remain running.
 %%%             `link' - the supervisor will use a link to link to the child.
 %%%             `child_link' - the child will link to this supervisor on spawn
-%%%             by itself.</dd>
+%%%             by itself.
 %%%             `child_monitor' - the child `MFA' call will set up a monitor
 %%%             by itself.</dd>
 %%%     <dt>ReportType</dt>
