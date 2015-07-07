@@ -16,7 +16,8 @@
 -export([local_seconds_since_epoch/1, local_time/1, 
          filename/2, datetime_to_now/1, localtime_to_now/1, 
          seconds_since_epoch/1, seconds_since_epoch_to_now/1,
-         datetime_to_string/1, time_to_string/1, time_to_string/2,
+         datetime_to_string/1,
+         time_to_string/1, time_to_string/2, time_to_msec/1, time_to_sec/1,
          string_to_time/1, parse_time/1, seconds_to_string/1]).
 
 -define(SECS_SINCE_UTC_EPOCH, 62167219200). % calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}})
@@ -112,6 +113,22 @@ time_to_string({H,M,S}) ->
 %%-------------------------------------------------------------------------
 time_to_string({H,M,S}, Sep) when is_integer(Sep) ->
     lists:flatten([i2l(H,2),Sep,i2l(M,2),Sep,i2l(S,2)]).
+
+%%-------------------------------------------------------------------------
+%% @doc Convert time to milliseconds since midnight
+%% @end
+%%-------------------------------------------------------------------------
+-spec time_to_msec(erlang:time()) -> integer().
+time_to_msec({H,M,S}) ->
+    (H*3600 + M*60 + S)*1000.
+
+%%-------------------------------------------------------------------------
+%% @doc Convert time to seconds since midnight
+%% @end
+%%-------------------------------------------------------------------------
+-spec time_to_sec(erlang:time()) -> integer().
+time_to_sec({H,M,S}) ->
+    H*3600 + M*60 + S.
 
 %%-------------------------------------------------------------------------
 %% @spec (Str::string()) -> time()
