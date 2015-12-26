@@ -741,7 +741,7 @@ do_stop(Reason, #state{restarts=C} = State) ->
 do_schedule_restart_on_failure(Reason, State) ->
     % Handle restart
     #state{intensity=I, period=P, last_fail=T, restarts=C, delay=D} = State,
-    Now = now(),
+    Now = erlang:timestamp(),
     case in_period(T, Now, P) of
     true when C < I ->
         % We haven't reached restart intensity yet
@@ -1036,7 +1036,7 @@ normalize_time(Time) ->
 %%          Type   = start | restart | force_start | reschedule | scheduled_stop
 %%          Status = started | already_running | scheduled
 start_child(#state{pid=Pid} = State, Type) ->
-    Now         = now(),
+    Now         = erlang:timestamp(),
     {Date,Time} = calendar:now_to_local_time(Now),
     MSecs       = msecs(Now),
     When        = case Type of
@@ -1054,7 +1054,7 @@ start_child(#state{pid=Pid} = State, Type) ->
             TRef = State#state.stop_timer;
         _ ->
             cancel_timer(State#state.stop_timer),
-            Now1 = now(),
+            Now1 = erlang:timestamp(),
             Int  = get_interval(now_to_time(Now1), UntilTime, 1)*1000 - msecs(Now1),
             TRef = erlang:send_after(Int, self(), {?COMPILED_SPEC, timer, scheduled_stop})
         end,
@@ -1180,7 +1180,7 @@ try_start_child2(#state{mod=Mod, mod_state=MState, report_type=Type, name=Name} 
         report_progress(false, Name, Report, Type, State#state.id),
         cancel_timer(State#state.start_timer),
         cancel_timer(State#state.stop_timer),
-        Now        = now(),
+        Now        = erlang:timestamp(),
         Interval   = get_interval(now_to_time(Now), UntilTime, 1)*1000 - msecs(Now),
         TRef       = erlang:send_after(Interval, self(), {?COMPILED_SPEC, timer, scheduled_stop}),
         {TRpt,Nxt} = case State#state.repeat_timer of
@@ -1269,7 +1269,7 @@ monitor_child(Pid, undefined) ->
 
 %%-------------------------------------------------------------------------
 %% @spec (Now) -> undefined | {Date, Time}
-%%           Now = undefined | now()
+%%           Now = undefined | erlang:timestamp().
 %% @doc Same as `calendar:now_to_local_time/1' but can accept `undefined'.
 %% @end
 %%-------------------------------------------------------------------------

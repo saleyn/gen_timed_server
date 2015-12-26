@@ -140,7 +140,7 @@ handle_start(#state{notify=Notify} = State, _Opaque) ->
     % is spawned calling handle_run/1 callback
     Notify ! {starting, self()},
     %?debugFmt("~p --> ~p Starting", [gen_timed_server:format_time(time()), self()]),
-    {start, State#state{start_time=now(), count=State#state.count+1}}.
+    {start, State#state{start_time=erlang:timestamp(), count=State#state.count+1}}.
 
 handle_run(#state{name=Name, delay=Timeout, notify=Notify, failure=Failure}) ->
     % This callback is executed in a separate process
@@ -166,7 +166,7 @@ handle_stop(Action, Reason, #state{notify=Notify, count=N} = State, _Opaque) ->
     %     ,{last_start, gen_timed_server:now_to_datetime(gen_timed_server:get(last_start, _Opaque))}
     %     ,{last_fail,  gen_timed_server:now_to_datetime(gen_timed_server:get(last_fail,  _Opaque))}]
     %    ]),
-    {Action, Reason, State#state{end_time=now(), start_time=undefined}}.
+    {Action, Reason, State#state{end_time=erlang:timestamp(), start_time=undefined}}.
 
 %% @private
 terminate(_Reason, _State) ->
