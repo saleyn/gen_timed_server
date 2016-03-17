@@ -42,7 +42,7 @@
 %% Internal exports
 -export([
       init/1, handle_call/4, handle_cast/3, handle_info/3
-    , code_change/3, terminate/2
+    , code_change/3, terminate/2, format_status/2
     , handle_start/2, handle_run/1, handle_stop/4
 ]).
 
@@ -175,6 +175,12 @@ terminate(_Reason, _State) ->
 %% @private
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%% @private
+format_status(_Opt, [_PDict, #state{}=State]) ->
+    Names = record_info(fields, state),
+	Vals  = tl(tuple_to_list(State)),
+    {state, lists:zip(Names, Vals)}.
 
 %%%------------------------------------------------------------------------
 %%% Internal functions

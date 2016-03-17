@@ -81,7 +81,6 @@
 %%%        {ok, Pid} | {stop, Reason}       when `no_spawn' option is provided
 %%%        {ok, Pid, Ref} | {stop, Reason}  when `no_spawn, {monitor_type, child_monitor}'
 %%%                                         options are provided
-%%%
 %%%    valid exit values are:
 %%%      * normal             - performs normal rescheduling
 %%%      * shutdown           - exits the gen_server without any further rescheduling
@@ -282,8 +281,6 @@
       call/2, call/3, cast/2, cast/3, reply/2
 ]).
 
--export([behaviour_info/1]).
-
 %% gen_server callbacks
 -export([
       init/1, handle_call/3, handle_cast/2, handle_info/2
@@ -336,13 +333,59 @@
 
 %% @hidden
 
-behaviour_info(callbacks) ->
-    [{init, 1}, {handle_call, 4}, {handle_cast, 3}, {handle_info, 3}
-    ,{terminate, 2}, {code_change, 3}
-    ,{handle_start, 2}, {handle_run, 1}, {handle_stop, 4}, {format_status, 2}
-    ];
-behaviour_info(_Other) ->
-  undefined.
+%%-------------------------------------------------------------------------
+%% gen_server behavior supervisor callbacks
+%%-------------------------------------------------------------------------
+-callback init(Args :: term()) ->
+    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore.
+-callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+                      State :: term()) ->
+    {reply, Reply :: term(), NewState :: term()} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_cast(Request :: term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_info(Info :: timeout | term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
+                    State :: term()) -> term().
+-callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
+                      Extra :: term()) ->
+    {ok, NewState :: term()} | {error, Reason :: term()}.
+-callback format_status(Opt, StatusData) -> Status when
+      Opt :: 'normal' | 'terminate',
+      StatusData :: [PDict | State],
+      PDict :: [{Key :: term(), Value :: term()}],
+      State :: term(),
+      Status :: term().
+
+%%-------------------------------------------------------------------------
+%% gen_timed_server behavior callbacks
+%%-------------------------------------------------------------------------
+-callback handle_start(State::term(), Opaque::term()) ->
+    {start, State::term()} |
+    {skip,  State::term()} |
+    {stop,  Reason::term(), State::term()}.
+
+-callback handle_run(State::term()) ->
+    ok |
+    {ok, pid()} | {ok, pid(), Ref::reference()} | 
+    {stop, Reason::term()}.
+
+-callback handle_stop(Action::continue|stop, Reason::term(),
+                      State::term(), Opaque::term()) ->
+    {continue, Reason::term(), State::term()} |
+    {stop, Reason::term(), State::term()}.
+
+-optional_callbacks([format_status/2, handle_start/2, handle_stop/4]).
 
 %%-------------------------------------------------------------------------
 %% @spec (Name::sup_name(), Module, Args, SupOpts::sup_options(), Options) ->
@@ -774,18 +817,18 @@ do_report_shutdown(FailAction, Reason, State) ->
     {stop, Reason, State#state{pid=undefined}}.
 
 check_state_change(#state{} = S1, #state{} = S2) ->
-    if  S1#state.mod                 =:= S2#state.mod
-      , S1#state.name                =:= S2#state.name
-      , S1#state.id                  =:= S2#state.id
-      , S1#state.schedule            =:= S2#state.schedule
-      , S1#state.valid_days          =:= S2#state.valid_days
-      , S1#state.intensity           =:= S2#state.intensity
-      , S1#state.period              =:= S2#state.period
-      , S1#state.restarts            =:= S2#state.restarts
-      , S1#state.delay               =:= S2#state.delay
-      , S1#state.monitor_type        =:= S2#state.monitor_type
-      , S1#state.shutdown            =:= S2#state.shutdown
-      , S1#state.report_type         =:= S2#state.report_type
+    if  S1#state.mod          =:= S2#state.mod
+      , S1#state.name         =:= S2#state.name
+      , S1#state.id           =:= S2#state.id
+      , S1#state.schedule     =:= S2#state.schedule
+      , S1#state.valid_days   =:= S2#state.valid_days
+      , S1#state.intensity    =:= S2#state.intensity
+      , S1#state.period       =:= S2#state.period
+      , S1#state.restarts     =:= S2#state.restarts
+      , S1#state.delay        =:= S2#state.delay
+      , S1#state.monitor_type =:= S2#state.monitor_type
+      , S1#state.shutdown     =:= S2#state.shutdown
+      , S1#state.report_type  =:= S2#state.report_type
     ->
         throw(no_change);
     true ->
