@@ -533,23 +533,23 @@ weekdays() ->
 %%      callbacks.  If `Item' is `all' then `[Value]' list is returned.
 %% @end
 %%-------------------------------------------------------------------------
-get(id,          #state{id=X})         -> X;
-get(name,        #state{name=X})       -> X;
-get(status,      #state{status=X})     -> X;
-get(schedule,    #state{schedule=X})   -> X;
-get(next_wakeup, #state{next_wakeup=X})-> X;
-get(next_repeat, #state{next_repeat=X})-> X;
-get(until_time,  #state{until_time=X}) -> X;
-get(last_start,  #state{last_start=X}) -> X;
-get(last_fail,   #state{last_fail=X})  -> X;
-get(intensity,   #state{intensity=X})  -> X;
-get(period,      #state{period=X})     -> X;
-get(restarts,    #state{restarts=X})   -> X;
-get(delay,       #state{delay=X})      -> X;
-get(valid_days,  #state{valid_days=X}) -> format_valid_days(X);
-get(monitor_type,#state{monitor_type=X})-> X;
-get(shutdown,    #state{shutdown=X})   -> X;
-get(all,         #state{} = State) ->
+get(id,          #state{id=X})           -> X;
+get(name,        #state{name=X})         -> X;
+get(status,      #state{status=X})       -> X;
+get(schedule,    #state{schedule=X})     -> X;
+get(next_wakeup, #state{next_wakeup=X})  -> X;
+get(next_repeat, #state{next_repeat=X})  -> X;
+get(until_time,  #state{until_time=X})   -> X;
+get(last_start,  #state{last_start=X})   -> X;
+get(last_fail,   #state{last_fail=X})    -> X;
+get(intensity,   #state{intensity=X})    -> X;
+get(period,      #state{period=X})       -> X;
+get(restarts,    #state{restarts=X})     -> X;
+get(delay,       #state{delay=X})        -> X;
+get(valid_days,  #state{valid_days=X})   -> format_valid_days(X);
+get(monitor_type,#state{monitor_type=X}) -> X;
+get(shutdown,    #state{shutdown=X})     -> X;
+get(all,         #state{} = State)       ->
     [
         {pid,           State#state.pid},
         {status,        State#state.status},
