@@ -71,6 +71,11 @@
 %%% The following callbacks happen on start/run/stop of a scheduled
 %%% child process:
 %%%
+%%%   init(Args)
+%%%     ==> {ok, State}
+%%%         ignore
+%%%         {stop, Reason}
+%%%
 %%%   handle_start(State, Opaque) ->
 %%%    ==> {start, State}        continues with normal start
 %%%        {skip, State}         reschedules startup for the next valid interval
@@ -612,7 +617,12 @@ init([Mod, Args, SupOpts, Name]) ->
         Other ->
             Other
         end
-    catch _:Reason ->
+    catch
+    ignore ->
+        ignore;
+    throw:Reason ->
+        {stop, Reason};
+    _:Reason ->
         {stop, {Reason, erlang:get_stacktrace()}}
     end.
 
@@ -759,13 +769,13 @@ invoke_stop_callback(Action, Reason, #state{mod=Mod, mod_state=MState} = State) 
     case erlang:function_exported(Mod,handle_stop,4) of
     true ->
         case Mod:handle_stop(Action, Reason, MState, NewState) of
-        {Ok, _, NewMS} when Ok=:=ok; Ok=:=noreply; Ok=:=continue ->
-            {noreply, NewState#state{mod_state=NewMS, pid=undefined}};
+        {Ok, _, NewMS} when Ok=:=continue; Ok=:=noreply; Ok=:=ok ->
+            {noreply, NewState#state{mod_state=NewMS, pid=undefined}, hibernate};
         {stop, NewReason, NewMS} ->
             {stop, NewReason, NewState#state{mod_state=NewMS, pid=undefined}}
         end;
     false when Action=:=continue ->
-        {noreply, NewState#state{pid=undefined}};
+        {noreply, NewState#state{pid=undefined}, hibernate};
     false ->
         {stop, Reason, NewState#state{pid=undefined}}
     end.
