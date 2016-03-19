@@ -1174,10 +1174,11 @@ format_repeat(_, Time) ->
 %%        Time::time()) ->
 %%            {ok, Info::atom(), State} | {stop, Reason, State}
 try_start_child(#state{mod=Mod, mod_state=MState} = State,
-                {_FromTime, _UntilTime, _Repeat} = Opaque, Time) ->
+                {FromTime, UntilTime, _Repeat} = Opaque, Time) ->
     case erlang:function_exported(Mod,handle_start,2) of
     true ->
-        case Mod:handle_start(MState, State) of
+        State1 = State#state{next_wakeup=FromTime, until_time=UntilTime},
+        case Mod:handle_start(MState, State1) of
         {Ok, NewMS} when Ok=:=noreply; Ok=:=start; Ok=:=ok ->
             try_start_child2(State#state{mod_state=NewMS}, Opaque, Time);
         {skip, NewMS} ->

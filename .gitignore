@@ -2,6 +2,7 @@
 /deps
 /ebin
 /doc
+.rebar
 *.o
 *.beam
 *.plt
