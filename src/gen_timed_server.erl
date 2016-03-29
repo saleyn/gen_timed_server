@@ -17,7 +17,7 @@
 %%% Scheduling features include abilities to:
 %%% <ul>
 %%% <li>Run a server on given days of week between one or more
-%%%     range of hours</li>
+%%%     ranges of hours</li>
 %%% <li>Specify periodic execution. E.g. a task can run every `N'
 %%%     seconds/minutes/hours between given hours of day</li>
 %%% <li>Limit execution of a server to given days of month specified
