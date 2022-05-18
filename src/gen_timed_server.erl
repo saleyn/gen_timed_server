@@ -622,8 +622,8 @@ init([Mod, Args, SupOpts, Name]) ->
         ignore;
     throw:Reason ->
         {stop, Reason};
-    _:Reason ->
-        {stop, {Reason, erlang:get_stacktrace()}}
+    _:Reason:ST ->
+        {stop, {Reason, ST}}
     end.
 
 %% @private
